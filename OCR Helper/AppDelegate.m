@@ -8,11 +8,22 @@
 
 #import "AppDelegate.h"
 
+
+NSString *const kPrefWatchPath = @"pref~WatchPath";
+
 @implementation AppDelegate
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
 {
     // Insert code here to initialize your application
+    id object = [[NSUserDefaults standardUserDefaults] objectForKey:kPrefWatchPath];
+    if(object) {
+        NSURL *url = [NSURL fileURLWithPath:(NSString *)object];
+        NSLog(@"preference URL is %@ string was %@", url, object);
+        [self.pathControl setURL:url];
+    } else {
+        NSLog(@"no preference?");
+    }
 }
 
 
@@ -21,27 +32,22 @@
 - (NSDragOperation)pathControl:(NSPathControl *)pathControl validateDrop:(id < NSDraggingInfo >)info {
     
     NSPasteboard *pboard = [info draggingPasteboard];
-    if(info) {
-        if ( [[pboard types] containsObject:NSFilenamesPboardType] ) {
-            NSArray *files = [pboard propertyListForType:NSFilenamesPboardType];
-            if([files count] != 1) {
-                return NSDragOperationNone;
-            }
-            NSString *file = [files objectAtIndex:0];
-            
-            BOOL isDirectory;
-            [[NSFileManager defaultManager] fileExistsAtPath:file
-                                                 isDirectory:&isDirectory];
-            if(isDirectory) {
-                return NSDragOperationCopy;
-            }
+    if ( [[pboard types] containsObject:NSFilenamesPboardType] ) {
+        NSArray *files = [pboard propertyListForType:NSFilenamesPboardType];
+        if([files count] != 1) {
+            return NSDragOperationNone;
+        }
+        NSString *file = [files objectAtIndex:0];
+        
+        BOOL isDirectory;
+        [[NSFileManager defaultManager] fileExistsAtPath:file isDirectory:&isDirectory];
+
+        if(isDirectory) {
+            return NSDragOperationCopy;
         }
     }
     
-    
     return NSDragOperationNone;
-    
-//    return NSDragOperationNone;
 }
 
 -(BOOL)pathControl:(NSPathControl *)pathControl acceptDrop:(id <NSDraggingInfo>)info
@@ -54,9 +60,8 @@
         [self.pathControl setURL:URL];
         NSString *str = [NSString stringWithFormat:@"Watching path %@",[URL path]];
         [self.statusText setStringValue:str];
-//        NSLog(@"URL: %@", URL);
-        // If appropriate, tell the user how they can reveal the path component.
-//        [self updateExplainText];
+        [[NSUserDefaults standardUserDefaults] setObject:[URL path] forKey:kPrefWatchPath];
+
         result = YES;
     }
     
