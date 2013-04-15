@@ -7,6 +7,7 @@
 //
 
 #import "AppDelegate.h"
+#import <PDFKit/PDFKit.h>
 
 
 NSString *const kPrefWatchPath = @"pref~WatchPath";
@@ -15,6 +16,7 @@ NSString *const kPrefWatchPath = @"pref~WatchPath";
 
 FSEventStreamRef stream;
 AppDelegate *instance;
+NSRunningApplication *ocrApp;
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
 {
@@ -30,6 +32,7 @@ AppDelegate *instance;
     [self.pathControl setURL:url];
     [self beginWatchingURL:url];
     instance = self;
+    ocrApp = nil;
 }
 
 - (void)applicationWillTerminate:(NSNotification *)aNotification {
@@ -59,13 +62,73 @@ void myCallbackFunction(
 }
 
 -(void)findFilesToRun {
+    
+    if(ocrApp) {
+        if([ocrApp isTerminated]) {
+            //done, continue
+            NSString *str = [NSString stringWithFormat:@"OCR finished"];
+            [self.statusText setStringValue:str];
+            ocrApp = nil;
+        } else {
+            //still working
+            NSString *str = [NSString stringWithFormat:@"OCR still running"];
+            [self.statusText setStringValue:str];
+            return;
+        }
+    }
+
     NSFileManager *fm = [NSFileManager defaultManager];
-    NSArray *dirContents = [fm contentsOfDirectoryAtPath:self.pathControl.URL.path error:nil];
+    NSString *dirPath = self.pathControl.URL.path;
+    NSArray *dirContents = [fm contentsOfDirectoryAtPath:dirPath error:nil];
     NSPredicate *fltr = [NSPredicate predicateWithFormat:@"self ENDSWITH '.pdf'"];
     NSArray *onlyPDFs = [dirContents filteredArrayUsingPredicate:fltr];
-    if([onlyPDFs count]) {
-        NSLog(@"PDFS: %@", onlyPDFs);
+
+    if(![onlyPDFs count]) {
+        //no pdfs.
+        return;
     }
+
+    for(NSString *pdf in onlyPDFs) {
+        
+        NSString *path = [dirPath stringByAppendingFormat:@"/%@",pdf];
+        if(![self shouldOCR:path]) {
+            continue;
+        }
+        NSString *str = [NSString stringWithFormat:@"Should OCR %@",pdf];
+        [self.statusText setStringValue:str];
+
+        NSWorkspace *workspace = [NSWorkspace sharedWorkspace];
+        NSURL *url = [NSURL fileURLWithPath:[workspace fullPathForApplication:@"Scan to Searchable PDF.app"]];
+        NSLog(@"App is at %@", url);
+        //NSError *error = nil;
+        NSArray *arguments = [NSArray arrayWithObjects:path, nil];
+        ocrApp = [workspace launchApplicationAtURL:url options:0 configuration:[NSDictionary dictionaryWithObject:arguments forKey:NSWorkspaceLaunchConfigurationArguments] error:nil];
+
+        return;
+    }
+}
+
+-(BOOL)shouldOCR:(NSString *)path {
+    NSURL *url = [NSURL fileURLWithPath: path];
+    PDFDocument *pdfDoc = [[PDFDocument alloc] initWithURL:url];
+    if(!pdfDoc) {
+        return NO;
+    }
+    NSString *done = @"ABBYY FineReader for ScanSnap";
+    NSDictionary *attributes = [pdfDoc documentAttributes];
+    if(attributes && attributes[PDFDocumentCreatorAttribute]) {
+        NSString *creator = attributes[PDFDocumentCreatorAttribute];
+        if([creator hasPrefix:done]) {
+            NSLog(@"Already OCRd by ABBYY");
+            return NO;
+        }
+    }
+    NSString *stringValue = [pdfDoc string];
+    if([stringValue length]) {
+        return YES;
+    }
+    NSLog(@"No String length, should OCR");
+    return NO;
 }
 
 -(void)beginWatchingURL:(NSURL *)url {
