@@ -17,6 +17,7 @@ NSString *const kPrefWatchPath = @"pref~WatchPath";
 FSEventStreamRef stream;
 AppDelegate *instance;
 NSRunningApplication *ocrApp;
+NSMutableDictionary *already;
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
 {
@@ -31,6 +32,7 @@ NSRunningApplication *ocrApp;
     }
     [self.pathControl setURL:url];
     [self beginWatchingURL:url];
+    already = [[NSMutableDictionary alloc] init];
     instance = self;
     ocrApp = nil;
 }
@@ -56,13 +58,14 @@ void myCallbackFunction(
     
     for (i=0; i<numEvents; i++) {
         /* flags are unsigned long, IDs are uint64_t */
-        NSLog(@"Change %llu in %s, flags %u\n", eventIds[i], paths[i], eventFlags[i]);
+        //NSLog(@"Change %llu in %s, flags %u\n", eventIds[i], paths[i], eventFlags[i]);
     }
 
 }
 
 -(void)findFilesToRun {
-    
+    //NSLog(@"findFilesToRun");
+
     if(ocrApp) {
         if([ocrApp isTerminated]) {
             //done, continue
@@ -71,10 +74,13 @@ void myCallbackFunction(
             ocrApp = nil;
         } else {
             //still working
-            NSString *str = [NSString stringWithFormat:@"OCR still running"];
+            NSString *str = [NSString stringWithFormat:@"OCR running"];
             [self.statusText setStringValue:str];
             return;
         }
+    } else {
+        NSString *str = [NSString stringWithFormat:@"Looking for new PDFs"];
+        [self.statusText setStringValue:str];
     }
 
     NSFileManager *fm = [NSFileManager defaultManager];
@@ -99,7 +105,7 @@ void myCallbackFunction(
 
         NSWorkspace *workspace = [NSWorkspace sharedWorkspace];
         NSURL *url = [NSURL fileURLWithPath:[workspace fullPathForApplication:@"Scan to Searchable PDF.app"]];
-        NSLog(@"App is at %@", url);
+        //NSLog(@"App is at %@", url);
         //NSError *error = nil;
         NSArray *arguments = [NSArray arrayWithObjects:path, nil];
         ocrApp = [workspace launchApplicationAtURL:url options:0 configuration:[NSDictionary dictionaryWithObject:arguments forKey:NSWorkspaceLaunchConfigurationArguments] error:nil];
@@ -110,8 +116,13 @@ void myCallbackFunction(
 
 -(BOOL)shouldOCR:(NSString *)path {
     NSURL *url = [NSURL fileURLWithPath: path];
+    if([already objectForKey:path]) {
+        //NSLog(@"%@ Already processed", url);
+        return NO;
+    }
     PDFDocument *pdfDoc = [[PDFDocument alloc] initWithURL:url];
     if(!pdfDoc) {
+        //NSLog(@"%@ Invalid PDF", url);
         return NO;
     }
     NSString *done = @"ABBYY FineReader for ScanSnap";
@@ -119,15 +130,17 @@ void myCallbackFunction(
     if(attributes && attributes[PDFDocumentCreatorAttribute]) {
         NSString *creator = attributes[PDFDocumentCreatorAttribute];
         if([creator hasPrefix:done]) {
-            NSLog(@"Already OCRd by ABBYY");
+            //NSLog(@"%@ Already OCRd by ABBYY", url);
+            [already setObject:path forKey:path];
             return NO;
         }
     }
     NSString *stringValue = [pdfDoc string];
     if([stringValue length]) {
+        [already setObject:path forKey:path];
         return YES;
     }
-    NSLog(@"No String length, should OCR");
+    //NSLog(@"%@ No string, should OCR", url);
     return NO;
 }
 
@@ -161,6 +174,25 @@ void myCallbackFunction(
     NSString *str = [NSString stringWithFormat:@"Watching path %@",path];
     [self.statusText setStringValue:str];
 
+    [NSTimer scheduledTimerWithTimeInterval:30.0f target:self selector:@selector(findFilesToRun) userInfo:nil repeats:YES];
+    
+    NSNotificationCenter *center = [[NSWorkspace sharedWorkspace] notificationCenter];
+    [center removeObserver:self];
+    [center addObserver:self selector:@selector(appTerminated:) name:NSWorkspaceDidTerminateApplicationNotification object:nil];
+}
+
+
+- (void)appTerminated:(NSNotification *)note {
+    NSDictionary *info = [note userInfo];
+    //NSLog(@"TERIMINATED INFO: %@", info);
+    NSString *app = [NSString stringWithFormat:@"%@", [info objectForKey:@"NSApplicationName"]];
+    
+    //NSLog(@"APP?: %@", app);
+
+    if ([app hasPrefix:@"Scan to Searchable PDF"]) {
+        ocrApp = nil;
+        [self findFilesToRun];
+    }
 }
 
 
