@@ -8,6 +8,7 @@
 
 #import "AppDelegate.h"
 #import <PDFKit/PDFKit.h>
+#import "TextProcessing.h"
 
 
 NSString *const kPrefWatchPath = @"pref~WatchPath";
@@ -17,6 +18,7 @@ NSString *const kPrefWatchPath = @"pref~WatchPath";
 FSEventStreamRef stream;
 AppDelegate *instance;
 NSRunningApplication *ocrApp;
+NSMutableDictionary *trainings;
 NSMutableDictionary *already;
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
@@ -33,6 +35,7 @@ NSMutableDictionary *already;
     [self.pathControl setURL:url];
     [self beginWatchingURL:url];
     already = [[NSMutableDictionary alloc] init];
+    trainings = [[NSMutableDictionary alloc] init];
     instance = self;
     ocrApp = nil;
 }
@@ -52,15 +55,15 @@ void myCallbackFunction(
 {
     [instance findFilesToRun];
     return;
-    
+/*
     int i;
     char **paths = eventPaths;
     
     for (i=0; i<numEvents; i++) {
-        /* flags are unsigned long, IDs are uint64_t */
+        // flags are unsigned long, IDs are uint64_t
         //NSLog(@"Change %llu in %s, flags %u\n", eventIds[i], paths[i], eventFlags[i]);
     }
-
+*/
 }
 
 -(void)findFilesToRun {
@@ -131,17 +134,29 @@ void myCallbackFunction(
         NSString *creator = attributes[PDFDocumentCreatorAttribute];
         if([creator hasPrefix:done]) {
             //NSLog(@"%@ Already OCRd by ABBYY", url);
-            [already setObject:path forKey:path];
-            return NO;
+            //[already setObject:path forKey:path];
+            //return NO;
         }
     }
     NSString *stringValue = [pdfDoc string];
     if([stringValue length]) {
+        NSString *basepath = [path stringByDeletingLastPathComponent];
+        NSObject *train = [trainings valueForKey:basepath];
+        if(!train) {
+            train = [[NSMutableDictionary alloc] init];
+        }
+
+        NSString *stripped = [TextProcessing removePunctuations:stringValue];
+        NSString *stopped = [TextProcessing removeStopwords:stripped];
+        NSArray *grammed = [TextProcessing trigrams:stopped];
+        NSLog(@"PATH %@", path);
+        NSLog(@"GRAMMED %@", grammed);
+
         [already setObject:path forKey:path];
-        return YES;
+        return NO;
     }
     //NSLog(@"%@ No string, should OCR", url);
-    return NO;
+    return YES;
 }
 
 -(void)beginWatchingURL:(NSURL *)url {
@@ -174,7 +189,7 @@ void myCallbackFunction(
     NSString *str = [NSString stringWithFormat:@"Watching path %@",path];
     [self.statusText setStringValue:str];
 
-    [NSTimer scheduledTimerWithTimeInterval:30.0f target:self selector:@selector(findFilesToRun) userInfo:nil repeats:YES];
+    [NSTimer scheduledTimerWithTimeInterval:10.0f target:self selector:@selector(findFilesToRun) userInfo:nil repeats:YES];
     
     NSNotificationCenter *center = [[NSWorkspace sharedWorkspace] notificationCenter];
     [center removeObserver:self];
