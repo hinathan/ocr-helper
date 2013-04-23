@@ -17,6 +17,7 @@
 		D8ABBF6C1723533F00C5C916 /* TextProcessing.m in Sources */ = {isa = PBXBuildFile; fileRef = D8ABBF641723497900C5C916 /* TextProcessing.m */; };
 		D8ABBF6D1723533F00C5C916 /* StopWords.m in Sources */ = {isa = PBXBuildFile; fileRef = D8ABBF651723497900C5C916 /* StopWords.m */; };
 		D8ABBF6E1723533F00C5C916 /* FeaturesVector.m in Sources */ = {isa = PBXBuildFile; fileRef = D8ABBF661723497900C5C916 /* FeaturesVector.m */; };
+		D8ABBF711723BBDB00C5C916 /* DirectoryClassifier.m in Sources */ = {isa = PBXBuildFile; fileRef = D8ABBF701723BBDB00C5C916 /* DirectoryClassifier.m */; };
 		D8DE8EFF171BBD9000A5C547 /* PDFKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D8DE8EFE171BBD9000A5C547 /* PDFKit.framework */; };
 /* End PBXBuildFile section */
 
@@ -42,6 +43,8 @@
 		D8ABBF681723497900C5C916 /* TextProcessing.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TextProcessing.h; sourceTree = "<group>"; };
 		D8ABBF691723497900C5C916 /* FeaturesVector.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FeaturesVector.h; sourceTree = "<group>"; };
 		D8ABBF6A1723497900C5C916 /* StopWords.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StopWords.h; sourceTree = "<group>"; };
+		D8ABBF6F1723BBDB00C5C916 /* DirectoryClassifier.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DirectoryClassifier.h; sourceTree = "<group>"; };
+		D8ABBF701723BBDB00C5C916 /* DirectoryClassifier.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DirectoryClassifier.m; sourceTree = "<group>"; };
 		D8DE8EFE171BBD9000A5C547 /* PDFKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PDFKit.framework; path = ../../../../System/Library/Frameworks/Quartz.framework/Versions/A/Frameworks/PDFKit.framework; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -98,6 +101,8 @@
 		D87D6846171A7A9800F3E331 /* OCR Helper */ = {
 			isa = PBXGroup;
 			children = (
+				D8ABBF6F1723BBDB00C5C916 /* DirectoryClassifier.h */,
+				D8ABBF701723BBDB00C5C916 /* DirectoryClassifier.m */,
 				D8ABBF621723496400C5C916 /* Bayes */,
 				D87D6852171A7A9800F3E331 /* AppDelegate.h */,
 				D87D6853171A7A9800F3E331 /* AppDelegate.m */,
@@ -204,6 +209,7 @@
 				D8ABBF6E1723533F00C5C916 /* FeaturesVector.m in Sources */,
 				D87D684D171A7A9800F3E331 /* main.m in Sources */,
 				D87D6854171A7A9800F3E331 /* AppDelegate.m in Sources */,
+				D8ABBF711723BBDB00C5C916 /* DirectoryClassifier.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

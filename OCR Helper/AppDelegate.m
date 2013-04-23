@@ -7,8 +7,7 @@
 //
 
 #import "AppDelegate.h"
-#import <PDFKit/PDFKit.h>
-#import "TextProcessing.h"
+#import "DirectoryClassifier.h"
 
 
 NSString *const kPrefWatchPath = @"pref~WatchPath";
@@ -18,8 +17,9 @@ NSString *const kPrefWatchPath = @"pref~WatchPath";
 FSEventStreamRef stream;
 AppDelegate *instance;
 NSRunningApplication *ocrApp;
-NSMutableDictionary *trainings;
 NSMutableDictionary *already;
+DirectoryClassifier *dc;
+NSArray *pdfs;
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
 {
@@ -35,9 +35,57 @@ NSMutableDictionary *already;
     [self.pathControl setURL:url];
     [self beginWatchingURL:url];
     already = [[NSMutableDictionary alloc] init];
-    trainings = [[NSMutableDictionary alloc] init];
     instance = self;
     ocrApp = nil;
+    [_textMulti setStringValue:@""];
+    dc = [[DirectoryClassifier alloc] init];
+    [dc recursivelyScanDirectory:@"/Users/nathan/Dropbox/Organized" exclude:@[@"/Users/nathan/Dropbox/Organized/Scanned",@"/Users/nathan/Dropbox/Organized/Unfiled"]];
+
+    pdfs = @[
+      @"/Users/nathan/Dropbox/Organized/Scanned/2013_04_20_14_08_42.pdf",
+      @"/Users/nathan/Dropbox/Organized/Scanned/2013_04_20_14_09_18.pdf",
+      @"/Users/nathan/Dropbox/Organized/Scanned/2013_04_20_14_08_59.pdf",
+      ];
+
+}
+-(void)ready {
+    [NSTimer scheduledTimerWithTimeInterval:1.0f target:self selector:@selector(runTestClassifiers) userInfo:nil repeats:NO];
+}
+
+int i = 0;
+-(void)runTestClassifiers {
+    NSString *pdf = [pdfs objectAtIndex:i];
+    if(!pdf) {
+        return;
+    }
+    NSURL *url = [NSURL fileURLWithPath:pdf];
+    [_pdfView setDocument:[[PDFDocument alloc] initWithURL:url]];
+    [_pdfViewGuess setDocument:nil];
+    [_textMulti setStringValue:@"thinking..."];
+    [dc classifyPDF:pdf completion:^ (NSArray *guesses, NSString *mostLike) {
+        [_textMulti setStringValue:[NSString stringWithFormat:@"Guesses:\n%@",[guesses componentsJoinedByString:@"\n"]]];
+        
+        NSURL *likeUrl = [NSURL fileURLWithPath:mostLike];
+        [_pdfViewGuess setDocument:[[PDFDocument alloc] initWithURL:likeUrl]];
+        
+        i++;
+        if(i < [pdfs count]) {
+            [NSTimer scheduledTimerWithTimeInterval:2.0f target:self selector:@selector(runTestClassifiers) userInfo:nil repeats:NO];
+        }
+    }];
+}
+
+-(void)status:(NSString *)status {
+    NSLog(@"Status: %@", status);
+    [self.statusText setStringValue:status];
+}
+
+-(void)setProgress:(NSInteger)done total:(NSInteger)total {
+    [_progress setMaxValue:total];
+    [_progress setDoubleValue:done];
+    if(done == total) {
+        [_progress setHidden:YES];
+    }
 }
 
 - (void)applicationWillTerminate:(NSNotification *)aNotification {
@@ -55,15 +103,6 @@ void myCallbackFunction(
 {
     [instance findFilesToRun];
     return;
-/*
-    int i;
-    char **paths = eventPaths;
-    
-    for (i=0; i<numEvents; i++) {
-        // flags are unsigned long, IDs are uint64_t
-        //NSLog(@"Change %llu in %s, flags %u\n", eventIds[i], paths[i], eventFlags[i]);
-    }
-*/
 }
 
 -(void)findFilesToRun {
@@ -73,17 +112,17 @@ void myCallbackFunction(
         if([ocrApp isTerminated]) {
             //done, continue
             NSString *str = [NSString stringWithFormat:@"OCR finished"];
-            [self.statusText setStringValue:str];
+            [self status:str];
             ocrApp = nil;
         } else {
             //still working
             NSString *str = [NSString stringWithFormat:@"OCR running"];
-            [self.statusText setStringValue:str];
+            [self status:str];
             return;
         }
     } else {
-        NSString *str = [NSString stringWithFormat:@"Looking for new PDFs"];
-        [self.statusText setStringValue:str];
+        //NSString *str = [NSString stringWithFormat:@"Looking for new PDFs"];
+        //[self status:str];
     }
 
     NSFileManager *fm = [NSFileManager defaultManager];
@@ -104,7 +143,7 @@ void myCallbackFunction(
             continue;
         }
         NSString *str = [NSString stringWithFormat:@"Should OCR %@",pdf];
-        [self.statusText setStringValue:str];
+        [self status:str];
 
         NSWorkspace *workspace = [NSWorkspace sharedWorkspace];
         NSURL *url = [NSURL fileURLWithPath:[workspace fullPathForApplication:@"Scan to Searchable PDF.app"]];
@@ -134,24 +173,12 @@ void myCallbackFunction(
         NSString *creator = attributes[PDFDocumentCreatorAttribute];
         if([creator hasPrefix:done]) {
             //NSLog(@"%@ Already OCRd by ABBYY", url);
-            //[already setObject:path forKey:path];
-            //return NO;
+            [already setObject:path forKey:path];
+            return NO;
         }
     }
     NSString *stringValue = [pdfDoc string];
     if([stringValue length]) {
-        NSString *basepath = [path stringByDeletingLastPathComponent];
-        NSObject *train = [trainings valueForKey:basepath];
-        if(!train) {
-            train = [[NSMutableDictionary alloc] init];
-        }
-
-        NSString *stripped = [TextProcessing removePunctuations:stringValue];
-        NSString *stopped = [TextProcessing removeStopwords:stripped];
-        NSArray *grammed = [TextProcessing trigrams:stopped];
-        NSLog(@"PATH %@", path);
-        NSLog(@"GRAMMED %@", grammed);
-
         [already setObject:path forKey:path];
         return NO;
     }
@@ -187,9 +214,9 @@ void myCallbackFunction(
     FSEventStreamStart(stream);
 
     NSString *str = [NSString stringWithFormat:@"Watching path %@",path];
-    [self.statusText setStringValue:str];
+    [self status:str];
 
-    [NSTimer scheduledTimerWithTimeInterval:10.0f target:self selector:@selector(findFilesToRun) userInfo:nil repeats:YES];
+    [NSTimer scheduledTimerWithTimeInterval:5.0f target:self selector:@selector(findFilesToRun) userInfo:nil repeats:YES];
     
     NSNotificationCenter *center = [[NSWorkspace sharedWorkspace] notificationCenter];
     [center removeObserver:self];

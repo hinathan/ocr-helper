@@ -12,6 +12,7 @@
 
 + (NSMutableArray *) bigrams: (NSString *) rawText;
 + (NSMutableArray *) trigrams: (NSString *) rawText;
++ (NSMutableArray *) fourgrams: (NSString *) rawText;
 + (NSString *) removeStopwords:(NSString *) rawText;
 + (NSMutableArray *) posTagger:(NSString *) raw;
 +(NSString *)removePunctuations:(NSString *)raw;

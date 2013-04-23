@@ -35,6 +35,19 @@
     return trigrams;
 }
 
++ (NSMutableArray *) fourgrams: (NSString *) rawText{
+    NSArray *listItems = [rawText componentsSeparatedByString:@" "];
+    NSMutableArray *fourgrams = [[NSMutableArray alloc] init];
+    for (int i =3; i < [listItems count]; i++) {
+        //NSLog(@"%i, %lu", i, [listItems count]);
+        NSString *fourgram = [NSString stringWithFormat:@"%@-%@-%@-%@",[listItems objectAtIndex:(i-3)], [listItems objectAtIndex:(i-2)], [listItems objectAtIndex:i-1], [listItems objectAtIndex:i]];
+        [fourgrams addObject:fourgram];
+    }
+    
+    return fourgrams;
+}
+
+
 + (NSMutableArray *) posTagger:(NSString *) raw{
     NSMutableArray *tokenTagArrays = [[NSMutableArray alloc] init];
     NSLinguisticTaggerOptions options = NSLinguisticTaggerOmitWhitespace  |
